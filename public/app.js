@@ -1,4 +1,4 @@
-// Interface da Gestão de OS — JavaScript puro, sem build.
+// Interface do OS Já — JavaScript puro, sem build.
 const $ = (sel, raiz = document) => raiz.querySelector(sel);
 const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
 const conteudo = $("#conteudo");
@@ -100,6 +100,26 @@ function perguntar(titulo, rotulo) {
   });
 }
 
+function perguntarCampo(titulo, rotulo, valor = "", attrs = "") {
+  return new Promise((resolve) => {
+    const d = document.createElement("dialog");
+    d.innerHTML = `<form method="dialog">
+      <h2>${esc(titulo)}</h2>
+      <label>${esc(rotulo)}<input name="r" value="${esc(valor)}" ${attrs}></label>
+      <div class="acoes"><button value="cancelar" formnovalidate>Voltar</button><button class="primario" value="ok">Confirmar</button></div>
+    </form>`;
+    document.body.append(d);
+    d.addEventListener("close", () => {
+      resolve(d.returnValue === "ok" ? $("input", d).value.trim() : null);
+      d.remove();
+    });
+    d.showModal();
+    $("input", d).select();
+  });
+}
+
+const centavosParaTexto = (c) => (c ? (c / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
+
 // ---------- rotas ----------
 const rotas = [
   [/^#?\/?$/, telaPainel, "painel"],
@@ -107,6 +127,9 @@ const rotas = [
   [/^#\/os\/(\d+)$/, telaOs, "painel"],
   [/^#\/clientes$/, telaClientes, "clientes"],
   [/^#\/clientes\/(\d+)$/, telaCliente, "clientes"],
+  [/^#\/equipe$/, telaEquipe, "equipe"],
+  [/^#\/m$/, telaMecanicoLista, "mecanico"],
+  [/^#\/m\/os\/(\d+)$/, telaMecanicoOs, "mecanico"],
 ];
 
 async function navegar() {
@@ -115,6 +138,8 @@ async function navegar() {
     const m = padrao.exec(hash);
     if (!m) continue;
     $$("[data-nav]").forEach((a) => a.classList.toggle("ativo", a.dataset.nav === nav));
+    document.body.classList.toggle("modo-mecanico", nav === "mecanico");
+    clearInterval(timerAtualizacao);
     conteudo.innerHTML = `<p class="carregando">Carregando…</p>`;
     try {
       await tela(...m.slice(1));
@@ -128,6 +153,7 @@ async function navegar() {
   location.hash = "#/";
 }
 window.addEventListener("hashchange", navegar);
+let timerAtualizacao;
 
 // ---------- painel ----------
 const filtroPainel = { status: "abertas", busca: "" };
@@ -195,7 +221,7 @@ function renderLista(itens, proximo, acrescentar, carregar) {
         <td class="numero-os">${o.numero}</td>
         <td>${placaHtml(o.placa)}<div class="secundario">${esc(o.veiculo)}</div></td>
         <td>${esc(o.clienteNome)}<div class="secundario">${esc(o.telefone ?? "")}</div></td>
-        <td>${statusHtml(o.status)}</td>
+        <td>${statusHtml(o.status)}${o.mecanico ? `<div class="secundario">🔧 ${esc(o.mecanico.nome)}</div>` : ""}</td>
         <td class="esconder-celular">${dataCurta(o.abertaEm)}</td>
         <td class="esconder-celular ${atrasada ? "atrasada" : ""}">${dataIso(o.previsaoEntrega)}</td>
         <td class="n">${reais(o.totalCentavos)}</td>
@@ -398,6 +424,8 @@ const ROTULO_EVENTO = {
   item_adicionado: () => "Item adicionado",
   item_removido: () => "Item removido",
   desconto: () => "Desconto alterado",
+  item_alterado: () => "Item ajustado",
+  mecanico: () => "Responsável alterado",
 };
 
 async function telaOs(id) {
@@ -408,12 +436,15 @@ async function telaOs(id) {
 function renderOs(os) {
   const c = os.cliente;
   const v = os.veiculo;
+  const precificavel = os.editavel || os.status === "concluida";
   const linhasItens = os.itens
-    .map((i) => `<tr>
+    .map((i) => `<tr class="${i.valorUnitarioCentavos === 0 ? "sem-valor" : ""}">
       <td><span class="tipo-item ${i.tipo}">${i.tipo === "servico" ? "Serviço" : "Peça"}</span></td>
       <td>${esc(i.descricao)}${i.codigo ? `<div class="secundario">Cód. ${esc(i.codigo)}</div>` : ""}</td>
       <td class="n">${qtd(i.quantidade)}</td>
-      <td class="n">${reais(i.valorUnitarioCentavos)}</td>
+      <td class="n">${precificavel
+        ? `<button type="button" class="valor-editavel" data-valor-item="${i.id}" title="Alterar valor">${i.valorUnitarioCentavos ? reais(i.valorUnitarioCentavos) : "definir valor"}</button>`
+        : reais(i.valorUnitarioCentavos)}</td>
       <td class="n">${reais(i.totalCentavos)}</td>
       <td class="n">${os.editavel ? `<button type="button" class="discreto" data-remover-item="${i.id}" aria-label="Remover ${esc(i.descricao)}">✕</button>` : ""}</td>
     </tr>`)
@@ -484,6 +515,17 @@ function renderOs(os) {
         </section>
       </div>
       <aside class="pilha">
+        <section class="cartao">
+          <h3>Mecânico responsável</h3>
+          <select id="sel-mecanico" ${travada ? "disabled" : ""} aria-label="Mecânico responsável">
+            <option value="">— sem responsável —</option>
+          </select>
+        </section>
+        <section class="cartao">
+          <h3>Anotações dos mecânicos</h3>
+          ${notasHtml(os.notas)}
+          ${travada ? "" : `<form id="form-nota" class="nova-nota"><textarea name="texto" placeholder="Anotação do escritório" rows="2" required></textarea><button type="submit">Anotar</button></form>`}
+        </section>
         <section class="cartao totais">
           <h3>Valores</h3>
           <p><span>Serviços</span><span>${reais(os.totais.servicosCentavos)}</span></p>
@@ -526,6 +568,39 @@ function renderOs(os) {
       }),
     ),
   );
+
+  $$("[data-valor-item]").forEach((b) =>
+    b.addEventListener("click", () =>
+      acao(b, async () => {
+        const item = os.itens.find((i) => String(i.id) === b.dataset.valorItem);
+        const texto = await perguntarCampo(`Valor de "${item.descricao}"`, "Valor unitário (R$)", centavosParaTexto(item.valorUnitarioCentavos), 'inputmode="decimal" required');
+        if (texto == null) return;
+        atualizar(await api("PATCH", `/api/ordens/${os.id}/itens/${item.id}`, { valorUnitarioCentavos: paraCentavos(texto) }));
+        avisar("Valor atualizado.");
+      }),
+    ),
+  );
+
+  carregarMecanicos().then((lista) => {
+    const sel = $("#sel-mecanico");
+    if (!sel) return;
+    const opcoes = lista.filter((m) => m.ativo || m.id === os.mecanico?.id);
+    if (os.mecanico && !opcoes.some((m) => m.id === os.mecanico.id)) opcoes.push(os.mecanico);
+    sel.insertAdjacentHTML("beforeend", opcoes.map((m) => `<option value="${m.id}" ${m.id === os.mecanico?.id ? "selected" : ""}>${esc(m.nome)}</option>`).join(""));
+    if (!lista.length) sel.insertAdjacentHTML("afterend", `<p class="secundario">Cadastre os mecânicos em <a href="#/equipe">Equipe</a>.</p>`);
+  }).catch(() => {});
+  $("#sel-mecanico").addEventListener("change", (e) =>
+    acao(e.target, async () => {
+      atualizar(await api("PUT", `/api/ordens/${os.id}/mecanico`, { mecanicoId: e.target.value ? Number(e.target.value) : null }));
+      avisar("Responsável atualizado.");
+    }),
+  );
+  $("#form-nota")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    acao($("button", e.target), async () => {
+      atualizar(await api("POST", `/api/ordens/${os.id}/notas`, { texto: e.target.elements.texto.value }));
+    });
+  });
 
   $$("[data-remover-item]").forEach((b) =>
     b.addEventListener("click", () =>
@@ -639,11 +714,312 @@ async function telaCliente(id) {
   });
 }
 
+
+// ---------- mecânicos (compartilhado) ----------
+const CHAVE_MECANICO = "osja.mecanico";
+function mecanicoAtual() {
+  try { return JSON.parse(localStorage.getItem(CHAVE_MECANICO) || "null"); } catch { return null; }
+}
+function definirMecanico(m) {
+  try {
+    if (m) localStorage.setItem(CHAVE_MECANICO, JSON.stringify({ id: m.id, nome: m.nome }));
+    else localStorage.removeItem(CHAVE_MECANICO);
+  } catch { /* navegador sem armazenamento: escolhe de novo na próxima vez */ }
+}
+const carregarMecanicos = (todos = false) => api("GET", `/api/mecanicos${todos ? "?todos=1" : ""}`);
+
+function notasHtml(notas) {
+  if (!notas?.length) return `<p class="secundario">Nenhuma anotação ainda.</p>`;
+  return `<ul class="notas">${notas.slice().reverse().map((n) => `<li>
+    <div class="nota-cab"><b>${esc(n.autor)}</b><time>${dataHora(n.criadoEm)}</time></div>
+    <p class="texto-livre">${esc(n.texto)}</p></li>`).join("")}</ul>`;
+}
+
+// ---------- modo mecânico (celular) ----------
+const STATUS_MECANICO = ["orcamento", "aprovada", "em_andamento", "aguardando_peca"];
+let abaMecanico = "meus";
+
+function topoMecanico(eu, voltar) {
+  return `<header class="m-topo">
+    ${voltar ? `<a class="m-voltar" href="${voltar}" aria-label="Voltar">‹</a>` : `<img src="/favicon.svg" alt="" width="30" height="30">`}
+    <div class="m-titulo"><strong>OS Já</strong>${eu ? `<span>${esc(eu.nome)}</span>` : ""}</div>
+    ${eu && !voltar ? `<button type="button" class="m-trocar" id="trocar-mecanico">Trocar</button>` : ""}
+  </header>`;
+}
+
+async function telaEscolherMecanico() {
+  const lista = await carregarMecanicos();
+  conteudo.innerHTML = `${topoMecanico(null)}
+    <section class="m-corpo">
+      <h1 class="m-h1">Quem é você?</h1>
+      <p class="secundario">Escolha seu nome para ver os carros com você. Fica salvo neste celular.</p>
+      <div class="m-lista-nomes">
+        ${lista.map((m) => `<button type="button" class="m-nome" data-mecanico="${m.id}">${esc(m.nome)}</button>`).join("") || `<p class="secundario">Nenhum mecânico cadastrado ainda.</p>`}
+      </div>
+      <form id="form-novo-mecanico" class="m-cartao m-form">
+        <label>Não está na lista? Digite seu nome<input name="nome" required minlength="2" maxlength="80" autocomplete="name"></label>
+        <button class="primario m-botao" type="submit">Entrar</button>
+      </form>
+    </section>`;
+  $$("[data-mecanico]").forEach((b) => b.addEventListener("click", () => {
+    definirMecanico(lista.find((m) => String(m.id) === b.dataset.mecanico));
+    navegar();
+  }));
+  $("#form-novo-mecanico").addEventListener("submit", (e) => {
+    e.preventDefault();
+    acao($("button", e.target), async () => {
+      definirMecanico(await api("POST", "/api/mecanicos", { nome: e.target.elements.nome.value }));
+      navegar();
+    });
+  });
+}
+
+function cartaoMecanico(o, naFila) {
+  return `<article class="m-cartao m-os" data-abrir="${o.id}">
+    <div class="m-os-cab">${placaHtml(o.placa, true)}${statusHtml(o.status)}</div>
+    <p class="m-veiculo">${esc(o.veiculo)} <span class="secundario">· OS ${o.numero}</span></p>
+    <p class="m-defeito">${esc(o.defeitoRelatado)}</p>
+    ${naFila ? `<button type="button" class="primario m-botao" data-pegar="${o.id}">Pegar este carro</button>`
+      : o.previsaoEntrega ? `<p class="secundario ${o.previsaoEntrega < hojeIso() ? "atrasada" : ""}">Previsão: ${dataIso(o.previsaoEntrega)}</p>` : ""}
+  </article>`;
+}
+
+async function telaMecanicoLista() {
+  const eu = mecanicoAtual();
+  if (!eu) return telaEscolherMecanico();
+  const status = STATUS_MECANICO.join(",");
+  const [meus, fila] = await Promise.all([
+    api("GET", `/api/ordens?mecanico=${eu.id}&status=${status}&limite=100`).catch((e) => {
+      if (/não encontrado|inválid/i.test(e.message)) definirMecanico(null);
+      throw e;
+    }),
+    api("GET", `/api/ordens?mecanico=nenhum&status=${status}&limite=100`),
+  ]);
+  const ordenar = (l) => l.sort((a, b) => STATUS_ORDEM_MEC[a.status] - STATUS_ORDEM_MEC[b.status] || a.numero - b.numero);
+  const listas = { meus: ordenar(meus.itens), fila: ordenar(fila.itens) };
+
+  conteudo.innerHTML = `${topoMecanico(eu)}
+    <nav class="m-abas" role="tablist">
+      <button type="button" role="tab" data-aba="meus" aria-selected="${abaMecanico === "meus"}">Meus carros <span>${listas.meus.length}</span></button>
+      <button type="button" role="tab" data-aba="fila" aria-selected="${abaMecanico === "fila"}">Fila <span>${listas.fila.length}</span></button>
+    </nav>
+    <section class="m-corpo" id="m-lista">
+      ${listas[abaMecanico].map((o) => cartaoMecanico(o, abaMecanico === "fila")).join("") ||
+        `<div class="m-vazio">${abaMecanico === "meus" ? "Nenhum carro com você agora.<br>Veja a <b>Fila</b> para pegar o próximo." : "Fila vazia. 👍"}</div>`}
+      <p class="m-rodape secundario">Atualiza sozinho a cada 30 s · <button type="button" class="link" id="m-atualizar">atualizar agora</button></p>
+    </section>`;
+
+  $("#trocar-mecanico").addEventListener("click", () => { definirMecanico(null); navegar(); });
+  $$("[data-aba]").forEach((b) => b.addEventListener("click", () => { abaMecanico = b.dataset.aba; navegar(); }));
+  $("#m-atualizar").addEventListener("click", () => navegar());
+  $("#m-lista").addEventListener("click", (e) => {
+    const pegar = e.target.closest("[data-pegar]");
+    if (pegar) {
+      acao(pegar, async () => {
+        await api("PUT", `/api/ordens/${pegar.dataset.pegar}/mecanico`, { mecanicoId: eu.id });
+        avisar("Carro é seu agora.");
+        location.hash = `#/m/os/${pegar.dataset.pegar}`;
+      });
+      return;
+    }
+    const cartao = e.target.closest("[data-abrir]");
+    if (cartao) location.hash = `#/m/os/${cartao.dataset.abrir}`;
+  });
+  timerAtualizacao = setInterval(() => {
+    if (document.visibilityState === "visible" && location.hash === "#/m" && !document.querySelector("dialog[open]")) navegar();
+  }, 30000);
+}
+const STATUS_ORDEM_MEC = { em_andamento: 0, aguardando_peca: 1, aprovada: 2, orcamento: 3 };
+
+async function telaMecanicoOs(id) {
+  const eu = mecanicoAtual();
+  if (!eu) return telaEscolherMecanico();
+  renderMecanicoOs(await api("GET", `/api/ordens/${id}`), eu);
+}
+
+const ACAO_MECANICO = {
+  em_andamento: (os) => (os.status === "aguardando_peca" ? "▶ Peça chegou — retomar" : os.status === "concluida" ? "↺ Reabrir serviço" : "▶ Iniciar serviço"),
+  aguardando_peca: () => "⏸ Aguardando peça",
+  concluida: () => "✔ Serviço concluído",
+};
+
+function renderMecanicoOs(os, eu) {
+  const v = os.veiculo;
+  const meu = os.mecanico?.id === eu.id;
+  const fechada = os.status === "entregue" || os.status === "cancelada";
+  const acoes = os.proximosStatus.filter((p) => ACAO_MECANICO[p.status]);
+  const itens = os.itens.map((i) => `<li>
+      <span class="tipo-item ${i.tipo}">${i.tipo === "servico" ? "Serviço" : "Peça"}</span>
+      <span class="m-item-desc">${esc(i.descricao)}</span>
+      <span class="m-item-qtd">${qtd(i.quantidade)}×</span>
+      ${os.editavel ? `<button type="button" class="discreto" data-remover-item="${i.id}" aria-label="Remover ${esc(i.descricao)}">✕</button>` : ""}
+    </li>`).join("");
+
+  conteudo.innerHTML = `${topoMecanico(eu, "#/m")}
+    <section class="m-corpo">
+      <div class="m-cartao m-veiculo-bloco">
+        <div class="m-os-cab">${placaHtml(v.placa, true)}${statusHtml(os.status)}</div>
+        <p class="m-veiculo"><b>${esc(v.marca)} ${esc(v.modelo)}</b>${v.ano ? ` ${v.ano}` : ""}${v.cor ? ` · ${esc(v.cor)}` : ""}</p>
+        <p class="secundario">OS ${os.numero}${os.kmEntrada != null ? ` · ${os.kmEntrada.toLocaleString("pt-BR")} km` : ""}${os.previsaoEntrega ? ` · previsão ${dataIso(os.previsaoEntrega)}` : ""}</p>
+        <p class="secundario">Responsável: <b>${esc(os.mecanico?.nome ?? "ninguém")}</b></p>
+        ${!meu && !fechada ? `<button type="button" class="m-botao ${os.mecanico ? "" : "primario"}" id="m-pegar">${os.mecanico ? `Assumir (está com ${esc(os.mecanico.nome)})` : "Pegar este carro"}</button>` : ""}
+      </div>
+
+      ${os.status === "orcamento" ? `<p class="m-info">Aguardando o cliente aprovar o orçamento. Você já pode registrar o diagnóstico e o que precisa ser feito.</p>` : ""}
+      ${acoes.length && !fechada ? `<div class="m-acoes">${acoes.map((a) => `<button type="button" class="m-botao m-acao ${a.status}" data-status="${a.status}">${ACAO_MECANICO[a.status](os)}</button>`).join("")}</div>` : ""}
+
+      <div class="m-cartao"><h3>Problema relatado</h3><p class="texto-livre">${esc(os.defeitoRelatado)}</p>
+        ${os.observacoes ? `<p class="secundario texto-livre">${esc(os.observacoes)}</p>` : ""}</div>
+
+      <form class="m-cartao m-form" id="m-diag">
+        <h3>Diagnóstico</h3>
+        <textarea name="diagnostico" rows="3" placeholder="O que você encontrou?" ${fechada ? "disabled" : ""}>${esc(os.diagnostico ?? "")}</textarea>
+        ${fechada ? "" : `<button type="submit" class="m-botao">Salvar diagnóstico</button>`}
+      </form>
+
+      <div class="m-cartao">
+        <h3>Serviços e peças</h3>
+        <ul class="m-itens">${itens || `<li class="secundario">Nada lançado ainda.</li>`}</ul>
+        ${os.editavel ? `<form id="m-item" class="m-form">
+          <div class="m-segmento" role="radiogroup" aria-label="Tipo">
+            <label><input type="radio" name="tipo" value="servico" checked><span>Serviço</span></label>
+            <label><input type="radio" name="tipo" value="peca"><span>Peça</span></label>
+          </div>
+          <input name="descricao" required maxlength="300" placeholder="Ex.: troca do filtro de óleo" aria-label="Descrição">
+          <div class="m-linha">
+            <label>Qtd / horas<input name="quantidade" inputmode="decimal" value="1" required></label>
+            <label>Valor (opcional)<input name="valor" inputmode="decimal" placeholder="o escritório define"></label>
+          </div>
+          <button type="submit" class="m-botao">+ Adicionar</button>
+        </form>` : ""}
+      </div>
+
+      <div class="m-cartao">
+        <h3>Anotações</h3>
+        ${notasHtml(os.notas)}
+        ${fechada ? "" : `<form id="m-nota" class="m-form">
+          <textarea name="texto" rows="2" required placeholder="Ex.: cliente autorizou trocar a correia"></textarea>
+          <button type="submit" class="m-botao">Enviar anotação</button>
+        </form>`}
+      </div>
+    </section>`;
+
+  const atualizar = (nova) => renderMecanicoOs(nova, eu);
+  const pegar = () => api("PUT", `/api/ordens/${os.id}/mecanico`, { mecanicoId: eu.id });
+
+  $("#m-pegar")?.addEventListener("click", (e) => acao(e.target, async () => { atualizar(await pegar()); avisar("Carro é seu agora."); }));
+  $$("[data-status]").forEach((b) => b.addEventListener("click", () => acao(b, async () => {
+    const status = b.dataset.status;
+    if (status === "concluida" && !confirm("Confirmar que o serviço foi concluído?")) return;
+    if (!os.mecanico) await pegar(); // quem inicia vira o responsável
+    const nova = await api("POST", `/api/ordens/${os.id}/status`, { status });
+    avisar(`${STATUS[status]}.`);
+    if (status === "concluida") location.hash = "#/m"; else atualizar(nova);
+  })));
+  $("#m-diag").addEventListener("submit", (e) => {
+    e.preventDefault();
+    acao($("button", e.target), async () => {
+      atualizar(await api("PATCH", `/api/ordens/${os.id}`, { diagnostico: e.target.elements.diagnostico.value }));
+      avisar("Diagnóstico salvo.");
+    });
+  });
+  $("#m-item")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    acao($("button[type=submit]", e.target), async () => {
+      const quantidade = paraNumero(f.quantidade.value || "1");
+      if (!(quantidade > 0)) throw new Error("Quantidade deve ser maior que zero.");
+      atualizar(await api("POST", `/api/ordens/${os.id}/itens`, {
+        tipo: f.tipo.value, descricao: f.descricao.value, quantidade, valorUnitarioCentavos: paraCentavos(f.valor.value),
+      }));
+      avisar("Adicionado.");
+    });
+  });
+  $$("[data-remover-item]").forEach((b) => b.addEventListener("click", () => acao(b, async () => {
+    if (!confirm("Remover este item?")) return;
+    atualizar(await api("DELETE", `/api/ordens/${os.id}/itens/${b.dataset.removerItem}`));
+  })));
+  $("#m-nota")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    acao($("button", e.target), async () => {
+      atualizar(await api("POST", `/api/ordens/${os.id}/notas`, { mecanicoId: eu.id, texto: e.target.elements.texto.value }));
+      avisar("Anotação enviada.");
+    });
+  });
+}
+
+// ---------- equipe e celulares (escritório) ----------
+function qrSvg(texto) {
+  if (typeof window.qrcode !== "function") return "";
+  const q = window.qrcode(0, "M");
+  q.addData(texto);
+  q.make();
+  return q.createSvgTag({ cellSize: 6, margin: 3, scalable: true, title: texto });
+}
+
+async function telaEquipe() {
+  const [lista, conexao] = await Promise.all([carregarMecanicos(true), api("GET", "/api/conexao")]);
+  conteudo.innerHTML = `
+    <div class="cabecalho"><div><h1>Equipe</h1><p class="subtitulo">Mecânicos e acesso pelo celular.</p></div>
+      <div class="acoes"><a class="botao" href="#/m">Abrir modo mecânico aqui</a></div></div>
+    <div class="duas-colunas">
+      <section class="cartao">
+        <h3>Celulares dos mecânicos</h3>
+        ${conexao.acessoRede ? `
+          ${conexao.enderecos.length ? `<div class="qr-grade">${conexao.enderecos.map((u) => `<figure class="qr">${qrSvg(u)}<figcaption><code>${esc(u)}</code></figcaption></figure>`).join("")}</div>` : `<p>Não encontrei o endereço deste computador na rede. Confira se ele está conectado ao Wi-Fi ou cabo.</p>`}
+          <ol class="passos">
+            <li>Conecte o celular no <b>mesmo Wi-Fi</b> da oficina.</li>
+            <li>Aponte a câmera para o QR code e abra o link.</li>
+            ${conexao.loginAtivo ? `<li>Digite o usuário e a senha do sistema (definidos no <code>config.env</code>).</li>` : ""}
+            <li>No Chrome, toque em <b>⋮ → Adicionar à tela inicial</b>. No iPhone, <b>Compartilhar → Adicionar à Tela de Início</b>.</li>
+          </ol>
+          ${conexao.loginAtivo ? "" : `<p class="alerta">⚠ Sem usuário e senha: qualquer pessoa no Wi-Fi da oficina consegue abrir o sistema. Defina <code>APP_USUARIO</code> e <code>APP_SENHA</code>.</p>`}`
+        : `<p>Hoje o sistema só abre <b>neste computador</b>, então os celulares ainda não conseguem acessar.</p>
+          <ol class="passos">
+            <li>No menu Iniciar, abra <b>OS Já — Liberar celulares</b> e confirme como administrador.</li>
+            <li>Anote o usuário e a senha que aparecerem.</li>
+            <li>Volte a esta tela: os QR codes para os celulares vão aparecer aqui.</li>
+          </ol>
+          <p class="secundario">Sem o instalador do Windows: defina <code>HOST=0.0.0.0</code>, <code>APP_USUARIO</code> e <code>APP_SENHA</code> e reinicie o sistema.</p>`}
+      </section>
+      <section class="cartao">
+        <h3>Mecânicos</h3>
+        <ul class="equipe">
+          ${lista.map((m) => `<li class="${m.ativo ? "" : "inativo"}">
+            <span><b>${esc(m.nome)}</b><br><span class="secundario">${m.ativo ? `${m.emAberto} carro(s) em aberto` : "desativado"}</span></span>
+            <button type="button" data-ativo="${m.id}" data-valor="${!m.ativo}">${m.ativo ? "Desativar" : "Reativar"}</button>
+          </li>`).join("") || `<li class="secundario">Nenhum mecânico cadastrado.</li>`}
+        </ul>
+        <form id="form-mecanico" class="linha-form">
+          <input name="nome" required minlength="2" maxlength="80" placeholder="Nome do mecânico" aria-label="Nome do mecânico">
+          <button class="primario" type="submit">Adicionar</button>
+        </form>
+      </section>
+    </div>`;
+  $("#form-mecanico").addEventListener("submit", (e) => {
+    e.preventDefault();
+    acao($("button", e.target), async () => {
+      await api("POST", "/api/mecanicos", { nome: e.target.elements.nome.value });
+      avisar("Mecânico adicionado.");
+      telaEquipe();
+    });
+  });
+  $$("[data-ativo]").forEach((b) => b.addEventListener("click", () => acao(b, async () => {
+    await api("PATCH", `/api/mecanicos/${b.dataset.ativo}`, { ativo: b.dataset.valor === "true" });
+    telaEquipe();
+  })));
+}
+
+// ---------- app instalável ----------
+if ("serviceWorker" in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
 // ---------- início ----------
 api("GET", "/api/config")
   .then((cfg) => {
     $("#nome-oficina").textContent = cfg.nomeOficina;
-    document.title = `${cfg.nomeOficina} · Gestão de OS`;
+    document.title = `${cfg.nomeOficina} · OS Já`;
   })
   .catch(() => {});
 navegar();

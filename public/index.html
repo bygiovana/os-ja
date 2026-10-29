@@ -2,25 +2,34 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestão de OS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2328">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OS Já">
+  <title>OS Já</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icones/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
   <link rel="stylesheet" href="/estilo.css">
 </head>
 <body>
   <header class="topo">
     <a class="marca" href="#/">
       <img src="/favicon.svg" alt="" width="28" height="28">
-      <span id="nome-oficina">Gestão de OS</span>
+      <span id="nome-oficina">OS Já</span>
     </a>
     <nav>
       <a href="#/" data-nav="painel">Ordens</a>
       <a href="#/clientes" data-nav="clientes">Clientes</a>
+      <a href="#/equipe" data-nav="equipe">Equipe</a>
       <a class="botao primario" href="#/nova">+ Nova OS</a>
     </nav>
   </header>
   <main id="conteudo" tabindex="-1"></main>
   <div id="aviso" role="status" aria-live="polite"></div>
+  <script src="/vendor/qrcode.js"></script>
   <script src="/app.js" type="module"></script>
 </body>
 </html>

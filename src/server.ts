@@ -8,7 +8,7 @@ const db = criarPool(cfg.databaseUrl, cfg.fusoHorario);
 
 await migrar(db);
 const servidor = criarApp(db, cfg).listen(cfg.porta, cfg.host, () => {
-  console.log(`Gestão de OS rodando em http://localhost:${cfg.porta} (escutando em ${cfg.host})`);
+  console.log(`OS Já rodando em http://localhost:${cfg.porta} (escutando em ${cfg.host})`);
   if (!cfg.usuario) console.warn("Aviso: sem APP_USUARIO/APP_SENHA, qualquer pessoa na rede acessa o sistema.");
 });
 

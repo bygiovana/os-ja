@@ -1,4 +1,4 @@
-# Gestão de OS — oficina mecânica
+# OS Já — ordens de serviço para oficina mecânica
 
 Sistema web para controlar as **ordens de serviço** de uma oficina: ao abrir a OS, o sistema gera o pedido com os **dados do cliente** e do **veículo**, lança serviços e peças, calcula os valores e acompanha o carro do orçamento até a entrega.
 
@@ -13,12 +13,25 @@ Sistema web para controlar as **ordens de serviço** de uma oficina: ao abrir a 
 - **Histórico** de cada OS (quem mudou o quê e quando).
 - **Painel** com OS em aberto, prontas para entrega, atrasadas e faturamento do mês.
 - **Impressão da OS** em A4, com campos de assinatura.
-- Funciona no computador e no celular; login opcional por usuário e senha.
+- **Modo Mecânico no celular** (`/#/m`): cada mecânico vê os carros com ele e a fila, pega um carro, inicia, marca "aguardando peça", conclui, registra diagnóstico, lança serviços e peças (o valor pode ficar para o escritório) e escreve anotações. Instalável na tela inicial do celular.
+- **Equipe**: cadastro dos mecânicos, responsável por OS e QR code para conectar os celulares.
+- Login opcional por usuário e senha.
+
+## Celulares dos mecânicos
+
+1. No computador da oficina, libere o acesso pela rede: no Windows instalado pelo .msi, abra
+   **OS Já — Liberar celulares** no menu Iniciar (define usuário/senha, `HOST=0.0.0.0` e libera a
+   porta no firewall só para redes privadas). Sem o instalador: `HOST=0.0.0.0`, `APP_USUARIO` e `APP_SENHA`.
+2. Abra **Equipe** no sistema, cadastre os mecânicos e escaneie o QR code com o celular (mesmo Wi-Fi).
+3. No celular: Chrome → ⋮ → **Adicionar à tela inicial** (iPhone: Compartilhar → Adicionar à Tela de Início).
+
+> Como o acesso na rede local é por `http://`, o celular cria um atalho para o app (o modo offline
+> completo de PWA exige HTTPS). Os dados nunca ficam guardados no celular.
 
 ## Instalador para Windows (.msi)
 
 Para usar na oficina sem instalar nada antes: rode `GestaoOS-<versão>.msi` como administrador.
-Ele instala o sistema com Node.js e PostgreSQL embutidos, cria os serviços **Gestão de OS** e
+Ele instala o sistema com Node.js e PostgreSQL embutidos, cria os serviços **OS Já** e
 **GestaoOS-Banco** (iniciam com o Windows) e o atalho que abre http://localhost:7300.
 Os dados ficam em `C:\ProgramData\GestaoOS` e são mantidos ao atualizar ou desinstalar.
 Detalhes de configuração, rede e backup em [`instalador/LEIA-ME.txt`](instalador/LEIA-ME.txt).
@@ -93,10 +106,15 @@ test/                       testes de domínio e de integração
 | Método | Rota | Descrição |
 |---|---|---|
 | `POST` | `/api/ordens` | abre OS; `cliente` e `veiculo` aceitam `{ "id": 1 }` ou os dados completos |
-| `GET` | `/api/ordens?status=&busca=&limite=&antesDe=` | lista (busca por nº, placa ou cliente) |
+| `GET` | `/api/ordens?status=&busca=&mecanico=&limite=&antesDe=` | lista (busca por nº, placa ou cliente; `mecanico=nenhum` = fila) |
 | `GET` / `PATCH` | `/api/ordens/:id` | detalhe / diagnóstico, observações, desconto, pagamento |
 | `POST` | `/api/ordens/:id/status` | `{ "status": "aprovada" }` (cancelar exige `motivo`) |
 | `POST` / `DELETE` | `/api/ordens/:id/itens[/:itemId]` | lança ou remove serviço/peça |
+| `PATCH` | `/api/ordens/:id/itens/:itemId` | ajusta descrição, quantidade ou valor (permitido até a OS ser entregue) |
+| `PUT` | `/api/ordens/:id/mecanico` | `{ "mecanicoId": 3 }` ou `null` |
+| `POST` | `/api/ordens/:id/notas` | anotação `{ "texto": "...", "mecanicoId": 3 }` |
+| `GET` / `POST` / `PATCH` | `/api/mecanicos[/:id]` | mecânicos (`?todos=1` inclui desativados) |
+| `GET` | `/api/conexao` | se os celulares conseguem acessar e os endereços na rede |
 | `GET` | `/api/resumo` | indicadores do painel |
 | `GET` | `/api/veiculos?placa=` | busca veículo e dono pela placa |
 | `GET` / `POST` / `PUT` | `/api/clientes[/:id]` | clientes |
@@ -116,7 +134,9 @@ Valores em dinheiro trafegam em **centavos** (inteiros). Exemplo de abertura:
 
 ## Próximos passos sugeridos
 
-- Usuários individuais com perfis (mecânico, atendente, gerente)
+- Usuários individuais com perfis (mecânico, atendente, gerente) — hoje o login é único e o mecânico escolhe o nome
+- Fotos do veículo pelo celular
+- HTTPS na rede local para o app funcionar offline
 - Cadastro de peças com estoque e tabela de preços de serviços
 - Envio do orçamento por WhatsApp para aprovação do cliente
 - Emissão de NFS-e / NF-e via integração

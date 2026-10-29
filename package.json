@@ -1,7 +1,7 @@
 {
-  "name": "gestao-de-os",
-  "version": "0.1.0",
-  "description": "Gestão de ordens de serviço para oficinas mecânicas: clientes, veículos, OS, peças, serviços e status.",
+  "name": "os-ja",
+  "version": "0.2.0",
+  "description": "OS Já — gestão de ordens de serviço para oficinas mecânicas, no computador e no celular dos mecânicos.",
   "private": true,
   "type": "module",
   "main": "dist/server.js",
@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
     "start": "node dist/server.js",
     "migrate": "tsx src/db/migrate-cli.ts",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

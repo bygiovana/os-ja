@@ -1,4 +1,4 @@
-# Para e remove os serviços da Gestão de OS. Os dados em C:\ProgramData\GestaoOS são mantidos
+# Para e remove os serviços do OS Já. Os dados em C:\ProgramData\GestaoOS são mantidos
 # (banco, configuração, backups e logs). Para apagar tudo, remova essa pasta manualmente.
 param([Parameter(Mandatory)] [string] $PastaInstalacao)
 
@@ -22,6 +22,7 @@ $pgCtl = Join-Path $PastaInstalacao 'pgsql\bin\pg_ctl.exe'
 if ((Get-Service -Name 'GestaoOS-Banco' -ErrorAction SilentlyContinue) -and (Test-Path $pgCtl)) { & $pgCtl unregister -N GestaoOS-Banco }
 if (Get-Service -Name 'GestaoOS-Banco' -ErrorAction SilentlyContinue) { sc.exe delete GestaoOS-Banco | Out-Null }
 
+Get-NetFirewallRule -DisplayName 'OS Já (celulares)' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 Write-Host 'Serviços removidos. Dados mantidos em' (Join-Path $env:ProgramData 'GestaoOS')
 Stop-Transcript | Out-Null
 exit 0

@@ -1,8 +1,8 @@
-GESTÃO DE OS — sistema de ordens de serviço para oficina mecânica
-===================================================================
+OS JÁ — sistema de ordens de serviço para oficina mecânica
+==========================================================
 
 COMO ABRIR
-  Clique no atalho "Gestão de OS" da área de trabalho ou do menu Iniciar.
+  Clique no atalho "OS Já" da área de trabalho ou do menu Iniciar.
   O endereço é http://localhost:7300
 
 O QUE FOI INSTALADO
@@ -10,7 +10,7 @@ O QUE FOI INSTALADO
   C:\ProgramData\GestaoOS       dados: banco, config.env, logs e backups
 
   Dois serviços do Windows iniciam junto com o computador:
-    Gestão de OS      (GestaoOS)        o sistema
+    OS Já             (GestaoOS)        o sistema
     GestaoOS-Banco                      o banco de dados PostgreSQL
 
 CONFIGURAÇÃO
@@ -19,13 +19,16 @@ CONFIGURAÇÃO
   Depois de salvar, reinicie o serviço: no PowerShell como administrador,
       Restart-Service GestaoOS
 
-USAR EM OUTROS COMPUTADORES DA OFICINA
-  1. No config.env troque HOST=127.0.0.1 por HOST=0.0.0.0
-  2. Defina APP_USUARIO e APP_SENHA (obrigatório quando liberar a rede)
-  3. Libere a porta no firewall (PowerShell como administrador):
-      New-NetFirewallRule -DisplayName "Gestão de OS" -Direction Inbound -Protocol TCP -LocalPort 7300 -Action Allow -Profile Private
-  4. Restart-Service GestaoOS
-  Nos outros computadores, acesse http://NOME-DESTE-COMPUTADOR:7300
+CELULARES DOS MECÂNICOS E OUTROS COMPUTADORES
+  1. No menu Iniciar, abra "OS Já — Liberar celulares" e confirme como administrador.
+     Ele cria usuário e senha (anote!), libera a porta 7300 no firewall só para redes
+     privadas e abre a tela Equipe com o QR code.
+  2. Em Equipe, cadastre os mecânicos.
+  3. No celular (mesmo Wi-Fi), escaneie o QR code, entre com usuário e senha e use
+     "Adicionar à tela inicial". Cada mecânico escolhe o próprio nome no primeiro acesso.
+  A rede do Windows precisa estar como PRIVADA (Configurações > Rede e Internet).
+  Para voltar a usar só neste computador: no config.env troque HOST=0.0.0.0 por
+  HOST=127.0.0.1 e rode  Restart-Service GestaoOS
 
 BACKUP
   PowerShell como administrador:
@@ -37,5 +40,5 @@ PROBLEMAS
   Logs em C:\ProgramData\GestaoOS\logs (instalacao.log, GestaoOS.*.log, banco-*.log).
 
 DESINSTALAR
-  Configurações > Aplicativos > Gestão de OS > Desinstalar.
+  Configurações > Aplicativos > OS Já > Desinstalar.
   Os dados em C:\ProgramData\GestaoOS são mantidos. Apague a pasta manualmente para remover tudo.

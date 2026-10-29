@@ -1,4 +1,4 @@
-# Configuração pós-instalação da Gestão de OS. Executado pelo .msi como SYSTEM.
+# Configuração pós-instalação do OS Já. Executado pelo .msi como SYSTEM.
 # Idempotente: numa atualização reaproveita banco e configuração existentes.
 param(
   [Parameter(Mandatory)] [string] $PastaInstalacao,
@@ -49,7 +49,7 @@ function Executar([string] $exe, [string[]] $argumentos) {
 function Servico-Existe([string] $nome) { [bool](Get-Service -Name $nome -ErrorAction SilentlyContinue) }
 
 try {
-  Write-Host "Instalando Gestão de OS em $PastaInstalacao (dados em $PastaDados)"
+  Write-Host "Instalando OS Já em $PastaInstalacao (dados em $PastaDados)"
 
   # Permissões: só SYSTEM, Administradores e o serviço (NetworkService) acessam os dados.
   # SIDs em vez de nomes porque o Windows em português traduz os nomes dos grupos.
@@ -62,7 +62,7 @@ try {
     $nome = ($NomeOficina -replace '[\r\n"]', '').Trim()
     if (-not $nome) { $nome = 'Minha Oficina' }
     Escrever-SemBom $config @"
-# Configuração da Gestão de OS. Depois de alterar, reinicie o serviço "Gestão de OS"
+# Configuração do OS Já. Depois de alterar, reinicie o serviço "OS Já"
 # (services.msc) ou rode no PowerShell como administrador:  Restart-Service GestaoOS
 
 DATABASE_URL=postgres://oficina:$senhaBanco@127.0.0.1:$PortaBanco/oficina
@@ -99,7 +99,7 @@ FUSO_HORARIO=America/Sao_Paulo
     $logBanco = ($logs -replace '\\', '/')
     Add-Content -Path (Join-Path $pgData 'postgresql.conf') -Encoding ASCII -Value @"
 
-# --- Gestão de OS ---
+# --- OS Já ---
 port = $PortaBanco
 listen_addresses = 'localhost'
 timezone = 'America/Sao_Paulo'
@@ -118,7 +118,7 @@ log_rotation_age = 1d
     Executar (Join-Path $pgBin 'pg_ctl.exe') @('register', '-N', $ServicoBanco, '-U', $Rede,
       '-D', $pgData, '-S', 'auto', '-w')
   }
-  Executar sc.exe @('description', $ServicoBanco, 'Banco de dados PostgreSQL da Gestão de OS')
+  Executar sc.exe @('description', $ServicoBanco, 'Banco de dados PostgreSQL do OS Já')
   Executar sc.exe @('failure', $ServicoBanco, 'reset=', '86400', 'actions=', 'restart/10000/restart/30000/restart/60000')
   Start-Service $ServicoBanco
   $pronto = $false
@@ -157,7 +157,7 @@ log_rotation_age = 1d
       $ok = $r.StatusCode -eq 200
     } catch { Start-Sleep 1 }
   }
-  if ($ok) { Write-Host "Gestão de OS no ar em http://localhost:$portaApp" }
+  if ($ok) { Write-Host "OS Já no ar em http://localhost:$portaApp" }
   else { Write-Warning "O serviço foi instalado mas ainda não respondeu. Veja $logs" }
   exit 0
 } catch {

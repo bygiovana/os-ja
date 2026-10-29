@@ -8,6 +8,7 @@ import type { Db } from "./db/pool.js";
 import { enviar, Router } from "./http/router.js";
 import { rotasClientes } from "./modules/clientes.js";
 import { rotasImpressao } from "./modules/impressao.js";
+import { rotasMecanicos } from "./modules/mecanicos.js";
 import { rotasOrdens } from "./modules/ordens.js";
 import { rotasVeiculos } from "./modules/veiculos.js";
 
@@ -21,6 +22,7 @@ const TIPOS: Record<string, string> = {
   ".png": "image/png",
   ".ico": "image/x-icon",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
 };
 
 const CABECALHOS_SEGURANCA = {
@@ -29,6 +31,11 @@ const CABECALHOS_SEGURANCA = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "same-origin",
 };
+
+/** Arquivos sem dados da oficina que o celular busca antes de pedir a senha (ícone do app). */
+const PUBLICO_SEM_LOGIN = (caminho: string) =>
+  caminho === "/api/saude" || caminho === "/manifest.webmanifest" || caminho === "/favicon.svg" ||
+  /^\/icones\/[\w-]+\.png$/.test(caminho);
 
 function igualSeguro(a: string, b: string): boolean {
   const ba = Buffer.from(a);
@@ -72,13 +79,14 @@ export function criarApp(db: Db, cfg: Config): Server {
   rotasVeiculos(router, db);
   rotasOrdens(router, db);
   rotasImpressao(router, db, cfg);
+  rotasMecanicos(router, db, cfg);
 
   return createServer(async (req, res) => {
     for (const [k, v] of Object.entries(CABECALHOS_SEGURANCA)) res.setHeader(k, v);
     const caminho = new URL(req.url ?? "/", "http://localhost").pathname;
 
-    if (caminho !== "/api/saude" && !autorizado(req, cfg)) {
-      res.writeHead(401, { "www-authenticate": 'Basic realm="Gestao de OS", charset="UTF-8"' });
+    if (!PUBLICO_SEM_LOGIN(caminho) && !autorizado(req, cfg)) {
+      res.writeHead(401, { "www-authenticate": 'Basic realm="OS Ja", charset="UTF-8"' });
       res.end("Acesso restrito.");
       return;
     }

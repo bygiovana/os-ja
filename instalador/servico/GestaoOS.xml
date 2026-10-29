@@ -2,8 +2,8 @@
 <!-- Configuração do WinSW: executa o Node.js da Gestão de OS como serviço do Windows. -->
 <service>
   <id>GestaoOS</id>
-  <name>Gestão de OS</name>
-  <description>Sistema de ordens de serviço da oficina (http://localhost). Configuração em C:\ProgramData\GestaoOS\config.env</description>
+  <name>OS Já</name>
+  <description>OS Já — ordens de serviço da oficina. Configuração em C:\ProgramData\GestaoOS\config.env</description>
   <executable>%BASE%\..\node\node.exe</executable>
   <arguments>--env-file="%ProgramData%\GestaoOS\config.env" "%BASE%\..\app\dist\server.js"</arguments>
   <workingdirectory>%BASE%\..\app</workingdirectory>

@@ -85,6 +85,15 @@ export interface OrdemServico {
   itens: ItemOS[];
   totais: Totais;
   eventos: EventoOS[];
+  mecanico: { id: number; nome: string } | null;
+  notas: NotaOS[];
+}
+
+export interface NotaOS {
+  id: number;
+  autor: string;
+  texto: string;
+  criadoEm: Date;
 }
 
 export async function buscarOrdem(ex: Executor, id: number): Promise<OrdemServico | null> {
@@ -93,7 +102,8 @@ export async function buscarOrdem(ex: Executor, id: number): Promise<OrdemServic
             defeito_relatado, diagnostico, observacoes,
             to_char(previsao_entrega, 'YYYY-MM-DD') AS previsao_entrega,
             desconto_centavos, forma_pagamento, motivo_cancelamento,
-            aberta_em, aprovada_em, concluida_em, entregue_em
+            aberta_em, aprovada_em, concluida_em, entregue_em, mecanico_id,
+            (SELECT nome FROM mecanicos m WHERE m.id = mecanico_id) AS mecanico_nome
      FROM ordens_servico WHERE id = $1`,
     [id],
   );
@@ -116,6 +126,11 @@ export async function buscarOrdem(ex: Executor, id: number): Promise<OrdemServic
 
   const eventosRes = await ex.query(
     `SELECT tipo, de, para, detalhe, criado_em FROM os_eventos WHERE os_id = $1 ORDER BY id`,
+    [id],
+  );
+
+  const notasRes = await ex.query(
+    `SELECT id, autor, texto, criado_em FROM os_notas WHERE os_id = $1 ORDER BY id`,
     [id],
   );
 
@@ -147,10 +162,12 @@ export async function buscarOrdem(ex: Executor, id: number): Promise<OrdemServic
     eventos: eventosRes.rows.map((e) => ({
       tipo: e.tipo, de: e.de, para: e.para, detalhe: e.detalhe, criadoEm: e.criado_em,
     })),
+    mecanico: r.mecanico_id ? { id: r.mecanico_id, nome: r.mecanico_nome } : null,
+    notas: notasRes.rows.map((n) => ({ id: n.id, autor: n.autor, texto: n.texto, criadoEm: n.criado_em })),
   };
 }
 
-async function registrarEvento(
+export async function registrarEvento(
   tx: Tx,
   osId: number,
   tipo: string,
@@ -171,13 +188,13 @@ async function inserirItem(tx: Tx, osId: number, item: ItemEntrada): Promise<num
 }
 
 /** Trava a OS para a transação e devolve o status atual. */
-async function travarOrdem(tx: Tx, id: number): Promise<StatusOS> {
+export async function travarOrdem(tx: Tx, id: number): Promise<StatusOS> {
   const { rows } = await tx.query(`SELECT status FROM ordens_servico WHERE id = $1 FOR UPDATE`, [id]);
   if (!rows[0]) throw naoEncontrado("Ordem de serviço");
   return rows[0].status as StatusOS;
 }
 
-function exigirEditavel(status: StatusOS): void {
+export function exigirEditavel(status: StatusOS): void {
   if (!permiteEditarItens(status)) {
     throw new ErroHttp(409, `A OS está "${ROTULO_STATUS[status]}" e não aceita alteração de itens ou valores.`);
   }
@@ -200,14 +217,20 @@ export function rotasOrdens(router: Router, db: Db): void {
     const antesDe = z.coerce.number().int().positive().optional().parse(query.get("antesDe") || undefined);
     const numeroBusca = /^\d+$/.test(busca) ? Number(busca) : null;
     const placaBusca = busca.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    // ?mecanico=3 → OS do mecânico 3; ?mecanico=nenhum → OS ainda sem responsável
+    const mecanicoParam = query.get("mecanico") ?? "";
+    const semMecanico = mecanicoParam === "nenhum";
+    const mecanicoId = mecanicoParam && !semMecanico ? z.coerce.number().int().positive().parse(mecanicoParam) : null;
 
     const { rows } = await db.query(
       `SELECT o.id, o.numero, o.status, o.aberta_em, to_char(o.previsao_entrega, 'YYYY-MM-DD') AS previsao_entrega,
               o.cliente_snapshot->>'nome' AS cliente_nome, o.cliente_snapshot->>'telefone' AS telefone,
               o.veiculo_snapshot->>'placa' AS placa,
               concat_ws(' ', o.veiculo_snapshot->>'marca', o.veiculo_snapshot->>'modelo') AS veiculo,
-              (coalesce(t.subtotal, 0) - least(o.desconto_centavos, coalesce(t.subtotal, 0)))::bigint AS total
+              (coalesce(t.subtotal, 0) - least(o.desconto_centavos, coalesce(t.subtotal, 0)))::bigint AS total,
+              o.defeito_relatado, o.mecanico_id, m.nome AS mecanico_nome
        FROM ordens_servico o
+       LEFT JOIN mecanicos m ON m.id = o.mecanico_id
        LEFT JOIN LATERAL (
          SELECT sum(round(quantidade * valor_unitario_centavos)) AS subtotal FROM os_itens WHERE os_id = o.id
        ) t ON true
@@ -215,9 +238,14 @@ export function rotasOrdens(router: Router, db: Db): void {
          AND ($2::int IS NULL OR o.numero < $2::int)
          AND ($3 = '' OR o.numero = $4::int OR o.veiculo_snapshot->>'placa' LIKE $5
               OR o.cliente_snapshot->>'nome' ILIKE $6)
+         AND ($8::int IS NULL OR o.mecanico_id = $8::int)
+         AND (NOT $9::boolean OR o.mecanico_id IS NULL)
        ORDER BY o.numero DESC
        LIMIT $7`,
-      [status, antesDe ?? null, busca, numeroBusca, placaBusca ? padraoBusca(placaBusca) : null, padraoBusca(busca), limite + 1],
+      [
+        status, antesDe ?? null, busca, numeroBusca, placaBusca ? padraoBusca(placaBusca) : null, padraoBusca(busca),
+        limite + 1, mecanicoId, semMecanico,
+      ],
     );
     const temMais = rows.length > limite;
     const pagina = rows.slice(0, limite);
@@ -235,6 +263,8 @@ export function rotasOrdens(router: Router, db: Db): void {
           abertaEm: r.aberta_em,
           previsaoEntrega: r.previsao_entrega,
           totalCentavos: Number(r.total),
+          defeitoRelatado: r.defeito_relatado,
+          mecanico: r.mecanico_id ? { id: r.mecanico_id, nome: r.mecanico_nome } : null,
         })),
         proximo: temMais ? pagina[pagina.length - 1].numero : null,
       },
@@ -342,6 +372,29 @@ export function rotasOrdens(router: Router, db: Db): void {
       });
     });
     return { status: 201, json: await buscarOrdem(db, id) };
+  });
+
+  // Ajuste de quantidade/valor de um item (ex.: o mecânico lançou a peça e o escritório põe o preço).
+  // Também permitido em OS concluída, porque o preço costuma ser fechado no balcão antes da entrega.
+  router.patch("/api/ordens/:id/itens/:itemId", async ({ params, corpo }) => {
+    const id = idParam.parse(params.id);
+    const itemId = idParam.parse(params.itemId);
+    const d = itemEntrada.pick({ descricao: true, quantidade: true, valorUnitarioCentavos: true }).partial().parse(corpo);
+    await emTransacao(db, async (tx) => {
+      const status = await travarOrdem(tx, id);
+      if (!permiteEditarItens(status) && status !== "concluida") exigirEditavel(status);
+      const { rows } = await tx.query(
+        `UPDATE os_itens SET descricao = coalesce($3, descricao), quantidade = coalesce($4, quantidade),
+           valor_unitario_centavos = coalesce($5, valor_unitario_centavos)
+         WHERE id = $1 AND os_id = $2 RETURNING descricao, quantidade, valor_unitario_centavos`,
+        [itemId, id, d.descricao ?? null, d.quantidade ?? null, d.valorUnitarioCentavos ?? null],
+      );
+      if (!rows[0]) throw naoEncontrado("Item");
+      await registrarEvento(tx, id, "item_alterado", {
+        detalhe: `${rows[0].descricao} (${Number(rows[0].quantidade)} × ${reais(Number(rows[0].valor_unitario_centavos))})`,
+      });
+    });
+    return { json: await buscarOrdem(db, id) };
   });
 
   router.delete("/api/ordens/:id/itens/:itemId", async ({ params }) => {

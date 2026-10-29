@@ -1,0 +1,17 @@
+{
+  "name": "OS Já — Oficina",
+  "short_name": "OS Já",
+  "description": "Ordens de serviço da oficina no celular do mecânico.",
+  "lang": "pt-BR",
+  "start_url": "/#/m",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1f2328",
+  "theme_color": "#1f2328",
+  "icons": [
+    { "src": "/icones/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icones/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icones/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

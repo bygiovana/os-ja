@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Instalador Windows (.msi) da Gestão de OS — gerado com WiX Toolset 5.
+  Instalador Windows (.msi) do OS Já — gerado com WiX Toolset 5.
   Não edite à mão para gerar: use instalador\build.ps1, que prepara a pasta "stage".
 
   Instala em C:\Program Files\GestaoOS:  app\ (sistema), node\ (Node.js), pgsql\ (PostgreSQL),
@@ -14,8 +14,8 @@
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
-  <Package Name="Gestão de OS"
-           Manufacturer="Gestão de OS"
+  <Package Name="OS Já"
+           Manufacturer="OS Já"
            Version="$(Versao)"
            UpgradeCode="{C05678A2-DF67-423B-8E4C-2739995F0144}"
            Scope="perMachine"
@@ -25,7 +25,7 @@
 
     <SummaryInformation Description="Gestão de ordens de serviço para oficina mecânica" />
 
-    <MajorUpgrade DowngradeErrorMessage="Uma versão mais nova da Gestão de OS já está instalada."
+    <MajorUpgrade DowngradeErrorMessage="Uma versão mais nova do OS Já já está instalada."
                   Schedule="afterInstallInitialize" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
@@ -36,7 +36,7 @@
     <Property Id="ARPPRODUCTICON" Value="IconeApp" />
     <Property Id="ARPNOREPAIR" Value="1" />
 
-    <Launch Condition="VersionNT64" Message="A Gestão de OS precisa do Windows 64 bits." />
+    <Launch Condition="VersionNT64" Message="O OS Já precisa do Windows 64 bits." />
     <Launch Condition="Privileged" Message="Execute o instalador como administrador." />
 
     <StandardDirectory Id="ProgramFiles64Folder">
@@ -53,14 +53,22 @@
     <!-- Atalhos que abrem o sistema no navegador -->
     <ComponentGroup Id="Atalhos">
       <Component Id="AtalhoMenu" Directory="ProgramMenuFolder" Guid="{4E2B7C61-0D1A-4C89-9A0E-6F1E3B2D9A11}">
-        <util:InternetShortcut Id="UrlMenu" Name="Gestão de OS" Target="http://localhost:[PORTA]"
+        <util:InternetShortcut Id="UrlMenu" Name="OS Já" Target="http://localhost:[PORTA]"
                                Type="url" IconFile="[INSTALLFOLDER]icone.ico" IconIndex="0" />
         <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="AtalhoMenu" Type="integer" Value="1" KeyPath="yes" />
       </Component>
       <Component Id="AtalhoDesktop" Directory="DesktopFolder" Guid="{9B3A1D52-7E4F-4F0B-8C2D-1A6E5F4C3B22}">
-        <util:InternetShortcut Id="UrlDesktop" Name="Gestão de OS" Target="http://localhost:[PORTA]"
+        <util:InternetShortcut Id="UrlDesktop" Name="OS Já" Target="http://localhost:[PORTA]"
                                Type="url" IconFile="[INSTALLFOLDER]icone.ico" IconIndex="0" />
         <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="AtalhoDesktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="AtalhoCelulares" Directory="ProgramMenuFolder" Guid="{6D1F3B84-2A5C-4E9B-B7D0-3C8E1F4A5B66}">
+        <Shortcut Id="LiberarCelulares" Name="OS Já — Liberar celulares"
+                  Description="Permite que os celulares dos mecânicos acessem o OS Já pelo Wi-Fi"
+                  Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+                  Arguments="-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;[INSTALLFOLDER]scripts\liberar-celulares.ps1&quot;"
+                  Icon="IconeApp" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="AtalhoCelulares" Type="integer" Value="1" KeyPath="yes" />
       </Component>
       <Component Id="Registro" Directory="INSTALLFOLDER" Guid="{2C8E6A43-5B1D-4E7A-9F3C-8D4B2A1E6C33}">
         <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="Porta" Type="string" Value="[PORTA]" KeyPath="yes" />
@@ -68,7 +76,7 @@
       </Component>
     </ComponentGroup>
 
-    <Feature Id="Principal" Title="Gestão de OS" Level="1">
+    <Feature Id="Principal" Title="OS Já" Level="1">
       <ComponentGroupRef Id="Arquivos" />
       <ComponentGroupRef Id="Atalhos" />
     </Feature>
