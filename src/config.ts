@@ -1,5 +1,6 @@
 export interface Config {
   porta: number;
+  host: string; // 0.0.0.0 = outros computadores da rede acessam; 127.0.0.1 = só este computador
   databaseUrl: string;
   nomeOficina: string;
   dadosOficina: string; // endereço, telefone, CNPJ — aparece no cabeçalho da OS impressa
@@ -20,6 +21,7 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   return {
     porta: Number(env.PORT ?? 3000),
+    host: env.HOST?.trim() || "0.0.0.0",
     databaseUrl,
     nomeOficina: env.OFICINA_NOME?.trim() || "Minha Oficina",
     dadosOficina: env.OFICINA_DADOS?.trim() || "",

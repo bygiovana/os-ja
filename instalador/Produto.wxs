@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Instalador Windows (.msi) da Gestão de OS — gerado com WiX Toolset 5.
+  Não edite à mão para gerar: use instalador\build.ps1, que prepara a pasta "stage".
+
+  Instala em C:\Program Files\GestaoOS:  app\ (sistema), node\ (Node.js), pgsql\ (PostgreSQL),
+  servico\ (WinSW) e scripts\. Dados ficam em C:\ProgramData\GestaoOS e são preservados ao
+  desinstalar ou atualizar.
+
+  Propriedades que podem ser passadas na linha de comando:
+    msiexec /i GestaoOS.msi OFICINA_NOME="Auto Center Bruno" PORTA=7300
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Gestão de OS"
+           Manufacturer="Gestão de OS"
+           Version="$(Versao)"
+           UpgradeCode="{C05678A2-DF67-423B-8E4C-2739995F0144}"
+           Scope="perMachine"
+           Language="1046"
+           Codepage="1252"
+           Compressed="yes">
+
+    <SummaryInformation Description="Gestão de ordens de serviço para oficina mecânica" />
+
+    <MajorUpgrade DowngradeErrorMessage="Uma versão mais nova da Gestão de OS já está instalada."
+                  Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Property Id="OFICINA_NOME" Value="Minha Oficina" Secure="yes" />
+    <Property Id="PORTA" Value="7300" Secure="yes" />
+
+    <Icon Id="IconeApp" SourceFile="icone.ico" />
+    <Property Id="ARPPRODUCTICON" Value="IconeApp" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <Launch Condition="VersionNT64" Message="A Gestão de OS precisa do Windows 64 bits." />
+    <Launch Condition="Privileged" Message="Execute o instalador como administrador." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="GestaoOS" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Todos os arquivos preparados pelo build.ps1 -->
+    <ComponentGroup Id="Arquivos" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.Stage)\**" />
+    </ComponentGroup>
+
+    <!-- Atalhos que abrem o sistema no navegador -->
+    <ComponentGroup Id="Atalhos">
+      <Component Id="AtalhoMenu" Directory="ProgramMenuFolder" Guid="{4E2B7C61-0D1A-4C89-9A0E-6F1E3B2D9A11}">
+        <util:InternetShortcut Id="UrlMenu" Name="Gestão de OS" Target="http://localhost:[PORTA]"
+                               Type="url" IconFile="[INSTALLFOLDER]icone.ico" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="AtalhoMenu" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="AtalhoDesktop" Directory="DesktopFolder" Guid="{9B3A1D52-7E4F-4F0B-8C2D-1A6E5F4C3B22}">
+        <util:InternetShortcut Id="UrlDesktop" Name="Gestão de OS" Target="http://localhost:[PORTA]"
+                               Type="url" IconFile="[INSTALLFOLDER]icone.ico" IconIndex="0" />
+        <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="AtalhoDesktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="Registro" Directory="INSTALLFOLDER" Guid="{2C8E6A43-5B1D-4E7A-9F3C-8D4B2A1E6C33}">
+        <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="Porta" Type="string" Value="[PORTA]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\GestaoOS" Name="PastaInstalacao" Type="string" Value="[INSTALLFOLDER]" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Principal" Title="Gestão de OS" Level="1">
+      <ComponentGroupRef Id="Arquivos" />
+      <ComponentGroupRef Id="Atalhos" />
+    </Feature>
+
+    <!--
+      Ações personalizadas (rodam como SYSTEM, sem janela):
+      - Configurar: cria o banco na 1ª instalação, registra os serviços e inicia tudo.
+      - Remover: para e remove os serviços (os dados em ProgramData ficam).
+    -->
+    <SetProperty Id="CA_Configurar"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\instalar.ps1&quot; -PastaInstalacao &quot;[INSTALLFOLDER]\&quot; -NomeOficina &quot;[OFICINA_NOME]&quot; -Porta [PORTA]"
+                 Before="CA_Configurar" Sequence="execute" />
+    <CustomAction Id="CA_Configurar" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec"
+                  Execute="deferred" Return="check" Impersonate="no" />
+
+    <SetProperty Id="CA_Remover"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\desinstalar.ps1&quot; -PastaInstalacao &quot;[INSTALLFOLDER]\&quot;"
+                 Before="CA_Remover" Sequence="execute" />
+    <CustomAction Id="CA_Remover" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec"
+                  Execute="deferred" Return="ignore" Impersonate="no" />
+
+    <InstallExecuteSequence>
+      <Custom Action="CA_Remover" Before="RemoveFiles" Condition="Installed AND REMOVE~=&quot;ALL&quot;" />
+      <Custom Action="CA_Configurar" Before="InstallFinalize" Condition="NOT REMOVE~=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="licenca.rtf" />
+  </Package>
+</Wix>

@@ -1,0 +1,37 @@
+name: Instalador Windows
+
+# Gera o .msi a cada tag de versão (ex.: git tag v0.2.0 && git push --tags)
+# ou manualmente pela aba Actions.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Gerar MSI
+        shell: pwsh
+        run: |
+          $versao = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '' }
+          if ($versao) { ./instalador/build.ps1 -Versao $versao } else { ./instalador/build.ps1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GestaoOS-msi
+          path: instalador/saida/*
+      - name: Anexar ao release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: instalador/saida/*

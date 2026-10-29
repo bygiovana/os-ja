@@ -36,6 +36,7 @@ describe("API de ordens de serviço", { skip: pular }, () => {
   let base = "";
   const cfg: Config = {
     porta: 0,
+    host: "127.0.0.1",
     databaseUrl: URL_TESTE ?? "",
     nomeOficina: "Oficina Teste",
     dadosOficina: "Rua A, 100 — Ribeirão Preto/SP",

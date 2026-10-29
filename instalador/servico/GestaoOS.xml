@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Configuração do WinSW: executa o Node.js da Gestão de OS como serviço do Windows. -->
+<service>
+  <id>GestaoOS</id>
+  <name>Gestão de OS</name>
+  <description>Sistema de ordens de serviço da oficina (http://localhost). Configuração em C:\ProgramData\GestaoOS\config.env</description>
+  <executable>%BASE%\..\node\node.exe</executable>
+  <arguments>--env-file="%ProgramData%\GestaoOS\config.env" "%BASE%\..\app\dist\server.js"</arguments>
+  <workingdirectory>%BASE%\..\app</workingdirectory>
+  <env name="NODE_ENV" value="production" />
+  <depend>GestaoOS-Banco</depend>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <resetfailure>1 hour</resetfailure>
+  <stoptimeout>15 sec</stoptimeout>
+  <logpath>%ProgramData%\GestaoOS\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+</service>

@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+instalador/vendor/
+instalador/stage/
+instalador/saida/

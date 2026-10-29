@@ -15,7 +15,23 @@ Sistema web para controlar as **ordens de serviço** de uma oficina: ao abrir a 
 - **Impressão da OS** em A4, com campos de assinatura.
 - Funciona no computador e no celular; login opcional por usuário e senha.
 
-## Rodando com Docker (recomendado)
+## Instalador para Windows (.msi)
+
+Para usar na oficina sem instalar nada antes: rode `GestaoOS-<versão>.msi` como administrador.
+Ele instala o sistema com Node.js e PostgreSQL embutidos, cria os serviços **Gestão de OS** e
+**GestaoOS-Banco** (iniciam com o Windows) e o atalho que abre http://localhost:7300.
+Os dados ficam em `C:\ProgramData\GestaoOS` e são mantidos ao atualizar ou desinstalar.
+Detalhes de configuração, rede e backup em [`instalador/LEIA-ME.txt`](instalador/LEIA-ME.txt).
+
+Para gerar o .msi (Windows com Node.js 20+ e .NET SDK 8+):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File instalador\build.ps1
+```
+
+O GitHub Actions também gera o .msi ao publicar uma tag (`git tag v0.2.0 && git push --tags`).
+
+## Rodando com Docker
 
 Precisa apenas do [Docker](https://docs.docker.com/get-docker/).
 

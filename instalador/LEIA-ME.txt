@@ -1,0 +1,41 @@
+GESTÃO DE OS — sistema de ordens de serviço para oficina mecânica
+===================================================================
+
+COMO ABRIR
+  Clique no atalho "Gestão de OS" da área de trabalho ou do menu Iniciar.
+  O endereço é http://localhost:7300
+
+O QUE FOI INSTALADO
+  C:\Program Files\GestaoOS     programa (sistema, Node.js, PostgreSQL)
+  C:\ProgramData\GestaoOS       dados: banco, config.env, logs e backups
+
+  Dois serviços do Windows iniciam junto com o computador:
+    Gestão de OS      (GestaoOS)        o sistema
+    GestaoOS-Banco                      o banco de dados PostgreSQL
+
+CONFIGURAÇÃO
+  Edite C:\ProgramData\GestaoOS\config.env (abra o Bloco de Notas como administrador).
+  Ali ficam o nome e os dados da oficina que saem na OS impressa.
+  Depois de salvar, reinicie o serviço: no PowerShell como administrador,
+      Restart-Service GestaoOS
+
+USAR EM OUTROS COMPUTADORES DA OFICINA
+  1. No config.env troque HOST=127.0.0.1 por HOST=0.0.0.0
+  2. Defina APP_USUARIO e APP_SENHA (obrigatório quando liberar a rede)
+  3. Libere a porta no firewall (PowerShell como administrador):
+      New-NetFirewallRule -DisplayName "Gestão de OS" -Direction Inbound -Protocol TCP -LocalPort 7300 -Action Allow -Profile Private
+  4. Restart-Service GestaoOS
+  Nos outros computadores, acesse http://NOME-DESTE-COMPUTADOR:7300
+
+BACKUP
+  PowerShell como administrador:
+      $env:PGPASSWORD = ((Get-Content C:\ProgramData\GestaoOS\config.env | Select-String 'DATABASE_URL').ToString() -replace '.*oficina:(.*)@.*','$1')
+      & "C:\Program Files\GestaoOS\pgsql\bin\pg_dump.exe" -h 127.0.0.1 -p 55433 -U oficina -Fc -f "C:\ProgramData\GestaoOS\backups\oficina-$(Get-Date -f yyyy-MM-dd).dump" oficina
+  Copie a pasta de backups para um pendrive ou nuvem com frequência.
+
+PROBLEMAS
+  Logs em C:\ProgramData\GestaoOS\logs (instalacao.log, GestaoOS.*.log, banco-*.log).
+
+DESINSTALAR
+  Configurações > Aplicativos > Gestão de OS > Desinstalar.
+  Os dados em C:\ProgramData\GestaoOS são mantidos. Apague a pasta manualmente para remover tudo.
