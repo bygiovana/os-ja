@@ -1,0 +1,38 @@
+@page { size: A4; margin: 12mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 11pt; color: #111; background: #fff; margin: 0 auto; max-width: 210mm; padding: 16px;
+}
+h1 { font-size: 18pt; margin: 0; }
+h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: .08em; color: #555; margin: 0 0 4px; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
+p { margin: 2px 0; }
+header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #e8590c; padding-bottom: 8px; margin-bottom: 12px; }
+header p { color: #444; font-size: 9.5pt; }
+.num { text-align: right; }
+.num span { display: block; font-size: 9pt; text-transform: uppercase; color: #555; letter-spacing: .06em; }
+.num strong { display: block; font-size: 20pt; }
+.num em { font-style: normal; font-size: 9pt; font-weight: 700; }
+section { margin-bottom: 12px; break-inside: avoid; }
+.grade { display: grid; grid-template-columns: 1.2fr 1.2fr .8fr; gap: 14px; }
+.texto { white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+th { text-align: left; font-size: 8.5pt; color: #555; border-bottom: 1px solid #999; padding: 3px 4px; }
+td { border-bottom: 1px solid #ddd; padding: 4px; }
+.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vazio { color: #888; text-align: center; }
+.totais { margin-left: auto; width: 45%; }
+.totais p { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.totais .total { font-size: 14pt; font-weight: 800; border-top: 2px solid #111; padding-top: 4px; margin-top: 4px; }
+.termo { margin-top: 24px; font-size: 9pt; color: #333; }
+.assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px; text-align: center; }
+.assinaturas div { border-top: 1px solid #111; padding-top: 4px; }
+.acoes { display: flex; gap: 12px; align-items: center; justify-content: flex-end; margin-bottom: 12px; }
+.acoes button { font: inherit; font-weight: 700; padding: 8px 18px; border-radius: 6px; border: 0; background: #e8590c; color: #fff; cursor: pointer; }
+@media print { .acoes { display: none; } body { padding: 0; } }
+/* mesmas larguras nas tabelas de serviços e peças */
+table { table-layout: fixed; }
+th:nth-child(1) { width: 14%; }
+th:nth-child(3) { width: 10%; }
+th:nth-child(4), th:nth-child(5) { width: 16%; }
+td { overflow-wrap: anywhere; }

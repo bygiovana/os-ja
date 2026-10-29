@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestão de OS</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+  <header class="topo">
+    <a class="marca" href="#/">
+      <img src="/favicon.svg" alt="" width="28" height="28">
+      <span id="nome-oficina">Gestão de OS</span>
+    </a>
+    <nav>
+      <a href="#/" data-nav="painel">Ordens</a>
+      <a href="#/clientes" data-nav="clientes">Clientes</a>
+      <a class="botao primario" href="#/nova">+ Nova OS</a>
+    </nav>
+  </header>
+  <main id="conteudo" tabindex="-1"></main>
+  <div id="aviso" role="status" aria-live="polite"></div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
