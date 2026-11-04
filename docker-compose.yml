@@ -1,0 +1,38 @@
+# Sobe banco + sistema com um comando:  docker compose up -d --build
+# Depois acesse http://localhost:3000
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oficina
+      POSTGRES_USER: oficina
+      POSTGRES_PASSWORD: ${DB_SENHA:-troque-esta-senha}
+      TZ: America/Sao_Paulo
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oficina -d oficina"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgres://oficina:${DB_SENHA:-troque-esta-senha}@db:5432/oficina
+      OFICINA_NOME: ${OFICINA_NOME:-Minha Oficina}
+      OFICINA_DADOS: ${OFICINA_DADOS:-}
+      APP_USUARIO: ${APP_USUARIO:-}
+      APP_SENHA: ${APP_SENHA:-}
+      FUSO_HORARIO: America/Sao_Paulo
+      TZ: America/Sao_Paulo
+
+volumes:
+  dados-postgres:
