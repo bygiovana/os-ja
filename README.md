@@ -36,7 +36,9 @@ Ele instala o sistema com Node.js e PostgreSQL embutidos, cria os serviços **OS
 Os dados ficam em `C:\ProgramData\GestaoOS` e são mantidos ao atualizar ou desinstalar.
 Detalhes de configuração, rede e backup em [`instalador/LEIA-ME.txt`](instalador/LEIA-ME.txt).
 
-Para gerar o .msi (Windows com Node.js 20+ e .NET SDK 8+):
+Depois de instalado, `iniciar.bat` liga os serviços (se estiverem parados) e abre o sistema no navegador.
+
+Para gerar o .msi (Windows com Node.js 20+ e .NET SDK 8+), dê dois cliques em `gerar-instalador.bat` ou rode:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File instalador\build.ps1
