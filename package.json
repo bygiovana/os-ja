@@ -1,6 +1,6 @@
 {
   "name": "os-ja",
-  "version": "0.2.0",
+  "version": "0.2.4",
   "description": "OS Já — gestão de ordens de serviço para oficinas mecânicas, no computador e no celular dos mecânicos.",
   "private": true,
   "type": "module",

@@ -5,7 +5,8 @@ param([Parameter(Mandatory)] [string] $PastaInstalacao)
 $PastaInstalacao = $PastaInstalacao.TrimEnd('\')
 $logs = Join-Path $env:ProgramData 'GestaoOS\logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
-Start-Transcript -Path (Join-Path $logs 'instalacao.log') -Append | Out-Null
+try { Start-Transcript -Path (Join-Path $logs 'instalacao.log') -Append -ErrorAction Stop | Out-Null; $comLog = $true }
+catch { $comLog = $false }
 
 foreach ($nome in 'GestaoOS', 'GestaoOS-Banco') {
   if (Get-Service -Name $nome -ErrorAction SilentlyContinue) {
@@ -24,5 +25,5 @@ if (Get-Service -Name 'GestaoOS-Banco' -ErrorAction SilentlyContinue) { sc.exe d
 
 Get-NetFirewallRule -DisplayName 'OS Já (celulares)' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 Write-Host 'Serviços removidos. Dados mantidos em' (Join-Path $env:ProgramData 'GestaoOS')
-Stop-Transcript | Out-Null
+if ($comLog) { try { Stop-Transcript | Out-Null } catch { } }
 exit 0

@@ -12,7 +12,8 @@ $ProgressPreference = 'SilentlyContinue'
 
 $VersaoNode = '22.21.1'
 $UrlPostgres = 'https://get.enterprisedb.com/postgresql/postgresql-16.11-1-windows-x64-binaries.zip'
-$UrlWinSW = 'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe'
+# versão para .NET Framework 4.6.1, que já vem no Windows 10/11 (0,6 MB; a WinSW-x64 traz o .NET embutido: 17 MB)
+$UrlWinSW = 'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET461.exe'
 $VersaoWix = '5.0.2'
 
 $instalador = $PSScriptRoot
@@ -55,7 +56,7 @@ Write-Host 'Node.js: checksum SHA-256 conferido.'
 
 $zipPg = Join-Path $vendor ([IO.Path]::GetFileName($UrlPostgres))
 Baixar $UrlPostgres $zipPg
-$exeWinSW = Join-Path $vendor 'WinSW-x64.exe'
+$exeWinSW = Join-Path $vendor ([IO.Path]::GetFileName($UrlWinSW))
 Baixar $UrlWinSW $exeWinSW
 
 # ---------------------------------------------------------------------------
@@ -83,6 +84,10 @@ try {
   if (Test-Path 'package-lock.json') { Executar npm.cmd @('ci', '--omit=dev', '--no-audit', '--no-fund', '--ignore-scripts') }
   else { Executar npm.cmd @('install', '--omit=dev', '--no-audit', '--no-fund', '--ignore-scripts') }
 } finally { Pop-Location }
+# dependências: só o que o Node executa (sem fontes TypeScript, tipos, mapas e documentação)
+$nm = Join-Path $app 'node_modules'
+Get-ChildItem $nm -Recurse -Directory -Include 'src', 'tests', '__tests__' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem $nm -Recurse -File -Include '*.d.ts', '*.d.cts', '*.d.mts', '*.map', '*.md' | Remove-Item -Force -ErrorAction SilentlyContinue
 
 # Node.js: só o executável e a licença
 $tmpNode = Join-Path $env:TEMP "gestaoos-node-$PID"
@@ -99,6 +104,19 @@ New-Item -ItemType Directory -Force $pastaPg | Out-Null
 foreach ($sub in 'bin', 'lib', 'share') { Move-Item (Join-Path $tmpPg "pgsql\$sub") $pastaPg }
 Get-ChildItem $pastaPg -Recurse -Include 'stackbuilder*', '*.pdb' | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 Get-ChildItem (Join-Path $pastaPg 'lib') -Filter '*.lib' | Remove-Item -Force
+# Sobras que o OS Já não usa (~35 MB):
+#  - wx*.dll: interface gráfica do StackBuilder (já removido); nenhum outro binário depende delas
+#  - share\locale: traduções das mensagens internas do banco
+#  - ferramentas de teste/desenvolvimento do PostgreSQL
+# Ficam: postgres, pg_ctl, initdb, psql, createdb, pg_isready (instalação) e pg_dump/pg_restore (backup).
+$pgBin = Join-Path $pastaPg 'bin'
+Get-ChildItem $pgBin -Filter 'wx*.dll' | Remove-Item -Force
+Remove-Item -Recurse -Force (Join-Path $pastaPg 'share\locale') -ErrorAction SilentlyContinue
+foreach ($exe in 'ecpg', 'pg_regress', 'pg_regress_ecpg', 'pg_isolation_regress', 'isolationtester',
+                 'libpq_pipeline', 'libpq_testclient', 'libpq_uri_regress', 'pgbench',
+                 'pg_test_fsync', 'pg_test_timing', 'pg_config', 'zic') {
+  Remove-Item (Join-Path $pgBin "$exe.exe") -Force -ErrorAction SilentlyContinue
+}
 Remove-Item -Recurse -Force $tmpPg
 
 Copy-Item $exeWinSW (Join-Path $stage 'servico\GestaoOS.exe')

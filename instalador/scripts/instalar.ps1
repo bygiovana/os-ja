@@ -20,7 +20,6 @@ $logs = Join-Path $PastaDados 'logs'
 $config = Join-Path $PastaDados 'config.env'
 
 New-Item -ItemType Directory -Force $PastaDados, $logs, (Join-Path $PastaDados 'backups') | Out-Null
-Start-Transcript -Path (Join-Path $logs 'instalacao.log') -Append | Out-Null
 
 function Escrever-SemBom([string] $caminho, [string] $texto) {
   [IO.File]::WriteAllText($caminho, $texto, (New-Object Text.UTF8Encoding $false))
@@ -48,13 +47,39 @@ function Executar([string] $exe, [string[]] $argumentos) {
 
 function Servico-Existe([string] $nome) { [bool](Get-Service -Name $nome -ErrorAction SilentlyContinue) }
 
-try {
-  Write-Host "Instalando OS Já em $PastaInstalacao (dados em $PastaDados)"
+# O log nunca pode impedir a instalação: se o arquivo não abrir, usa outro nome ou segue sem log.
+function Iniciar-Log {
+  foreach ($nome in 'instalacao.log', ('instalacao-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date))) {
+    try { Start-Transcript -Path (Join-Path $logs $nome) -Append -ErrorAction Stop | Out-Null; return $true }
+    catch { Write-Warning "Não foi possível gravar o log em ${nome}: $($_.Exception.Message)" }
+  }
+  $false
+}
 
+$comLog = $false
+try {
   # Permissões: só SYSTEM, Administradores e o serviço (NetworkService) acessam os dados.
   # SIDs em vez de nomes porque o Windows em português traduz os nomes dos grupos.
+  # As permissões ficam SÓ na pasta raiz e todo o conteúdo herda dela. Não use /T com
+  # /inheritance:r: nos arquivos as flags (OI)(CI) não valem e eles ficam sem permissão nenhuma
+  # (foi o que travou a reinstalação da 0.2.0: config.env, banco e logs inacessíveis até p/ SYSTEM).
   Executar icacls.exe @($PastaDados, '/inheritance:r', '/grant:r',
-    '*S-1-5-18:(OI)(CI)F', '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-20:(OI)(CI)M', '/T', '/Q')
+    '*S-1-5-18:(OI)(CI)F', '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-20:(OI)(CI)M', '/Q')
+  if (Get-ChildItem $PastaDados -Force | Select-Object -First 1) {
+    # arquivos criados pelos serviços têm o NetworkService como dono: Administradores assumem
+    # a posse para poder refazer as permissões, depois tudo volta a herdar da raiz.
+    # takeown (privilégio de tomar posse) e não "icacls /setowner", que exige SeRestorePrivilege
+    # e falha dentro do instalador. Sem /D: as pastas continuam legíveis, não há pergunta.
+    & takeown.exe /F $PastaDados /R /A | Out-Null
+    & icacls.exe "$PastaDados\*" /reset /T /C /Q
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Alguns arquivos em $PastaDados não tiveram as permissões refeitas (código $LASTEXITCODE)." }
+  }
+  # o serviço do banco roda como NetworkService e precisa de controle total em banco\ (herdado)
+  if (Test-Path $pgData) { Executar icacls.exe @($pgData, '/grant:r', '*S-1-5-20:(OI)(CI)F', '/Q') }
+
+  # o log só abre depois de acertar as permissões, para não mexer num arquivo em uso
+  $comLog = Iniciar-Log
+  Write-Host "Instalando OS Já em $PastaInstalacao (dados em $PastaDados)"
 
   # 1. Configuração (criada só na primeira vez)
   if (-not (Test-Path $config)) {
@@ -110,7 +135,7 @@ log_truncate_on_rotation = on
 log_rotation_age = 1d
 "@
     # o serviço do banco roda como NetworkService e precisa ser dono dos arquivos
-    Executar icacls.exe @($pgData, '/grant:r', '*S-1-5-20:(OI)(CI)F', '/T', '/Q')
+    Executar icacls.exe @($pgData, '/grant:r', '*S-1-5-20:(OI)(CI)F', '/Q')
   }
 
   # 3. Serviço do banco
@@ -148,8 +173,20 @@ log_rotation_age = 1d
   Executar sc.exe @('failure', $ServicoApp, 'reset=', '86400', 'actions=', 'restart/10000/restart/30000/restart/60000')
   Start-Service $ServicoApp
 
-  # 5. Confere se o sistema respondeu (não desfaz a instalação se demorar)
   $portaApp = [int]$cfg['PORT']
+
+  # Celulares já liberados (HOST=0.0.0.0 pelo "Liberar celulares"): a desinstalação/atualização
+  # remove a regra do firewall, então ela é recriada aqui — só para redes PRIVADAS.
+  if ($cfg['HOST'] -eq '0.0.0.0') {
+    try {
+      Get-NetFirewallRule -DisplayName 'OS Já (celulares)' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+      New-NetFirewallRule -DisplayName 'OS Já (celulares)' -Direction Inbound -Protocol TCP -LocalPort $portaApp `
+        -Action Allow -Profile Private | Out-Null
+      Write-Host "Firewall: porta $portaApp liberada para redes privadas (celulares)."
+    } catch { Write-Warning "Não foi possível liberar a porta no firewall: $($_.Exception.Message)" }
+  }
+
+  # 5. Confere se o sistema respondeu (não desfaz a instalação se demorar)
   $ok = $false
   for ($i = 0; $i -lt 45 -and -not $ok; $i++) {
     try {
@@ -164,5 +201,5 @@ log_rotation_age = 1d
   Write-Error $_
   exit 1
 } finally {
-  Stop-Transcript | Out-Null
+  if ($comLog) { try { Stop-Transcript | Out-Null } catch { } }
 }

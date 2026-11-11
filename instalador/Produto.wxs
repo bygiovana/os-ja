@@ -35,6 +35,10 @@
     <Icon Id="IconeApp" SourceFile="icone.ico" />
     <Property Id="ARPPRODUCTICON" Value="IconeApp" />
     <Property Id="ARPNOREPAIR" Value="1" />
+    <!-- Na atualização o node.exe e o postgres.exe estão rodando como serviço e o Restart Manager
+         mostrava "arquivos em uso" (travando o /qb). Não é preciso: a desinstalação da versão
+         anterior (CA_Remover) para os serviços antes de os arquivos serem trocados. -->
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
 
     <Launch Condition="VersionNT64" Message="O OS Já precisa do Windows 64 bits." />
     <Launch Condition="Privileged" Message="Execute o instalador como administrador." />
